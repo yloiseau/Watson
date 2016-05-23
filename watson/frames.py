@@ -41,6 +41,21 @@ class Frame(namedtuple('Frame', HEADERS)):
 
         return (start, stop, self.project, self.id, self.tags, updated_at)
 
+    def update(self, new_project=None, tags_to_add=None, tags_to_remove=None):
+        """
+        return a copy of this frame with values updated according to the
+        given specification
+        """
+        if (new_project, tags_to_add, tags_to_remove) == (None, None, None):
+            return self
+        return Frame(
+            start=self.start,
+            stop=self.stop,
+            project=new_project or self.project,
+            id=self.id,
+            tags=list(set(self.tags) | tags_to_add - tags_to_remove),
+            updated_at=arrow.utcnow())
+
     @property
     def day(self):
         return self.start.floor('day')

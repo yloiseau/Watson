@@ -939,3 +939,63 @@ def merge(watson, frames_with_conflict, force):
     watson.frames = original_frames
     watson.frames.changed = True
     watson.save()
+
+
+@cli.command()
+@click.argument('args', nargs=-1)
+@click.option('-f', '--from', 'from_', type=Date,
+              default=arrow.now().replace(days=-7),
+              help="The date from when the modification should start. "
+              "Defaults to seven days ago.")
+@click.option('-t', '--to', type=Date, default=arrow.now(),
+              help="The date at which the modification should stop "
+              " (inclusive). Defaults to tomorrow.")
+@click.option('-p', '--project', 'projects', multiple=True,
+              help="Modify only the given project. You can add "
+              "other projects by using this option several times.")
+@click.option('-T', '--tag', 'tags', multiple=True,
+              help="Modify only frames containing the given tag. You can add "
+              " several tags by using this option multiple times")
+@click.pass_obj
+def modify(watson, from_, to, projects, tags, args):
+    """
+    Modify the corresponding frames.
+    The options are the same as for `report` or `log`, and filters which frames
+    to update.
+
+    The arguments are similar to `start`, and define the new project name, and
+    the tags to add or remove.
+    """
+    if from_ > to:
+        raise click.ClickException("'from' must be anterior to 'to'")
+    if not args:
+        raise click.ClickException("nothing to do")
+
+    frames_to_modify = watson.frames.filter(
+        projects=projects or None,
+        tags=tags or None,
+        span=watson.frames.span(from_, to)
+    )
+    modif_spec = _parse_modify_spec(args)
+    for frame in frames_to_modify:
+        watson.frames[frame.id] = frame.update(*modif_spec)
+    watson.save()
+
+
+def _parse_modify_spec(args):
+    new_project = []
+    tags_changes = []
+    in_project = True
+    for arg in args:
+        if arg[0] in ('+', '-'):
+            in_project = False
+            tags_changes.append(arg)
+        elif in_project:
+            new_project.append(arg)
+        else:
+            tags_changes[-1] += ' ' + arg
+    return (
+        ' '.join(new_project) or None,
+        set(t[1:] for t in tags_changes if t.startswith('+')) or None,
+        set(t[1:] for t in tags_changes if t.startswith('-')) or None
+    )
