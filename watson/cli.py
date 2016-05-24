@@ -15,7 +15,7 @@ import click
 from . import watson
 from .frames import Frame
 from .utils import (format_timedelta, get_frame_from_argument, options,
-                    sorted_groupby, style)
+                    sorted_groupby, style, parse_modify_spec)
 
 
 class WatsonCliError(click.ClickException):
@@ -965,7 +965,20 @@ def modify(watson, from_, to, projects, tags, args):
 
     The arguments are similar to `start`, and define the new project name, and
     the tags to add or remove.
+
+    For instance, to convert a tag into a "subproject":
+
+    \b
+    $ watson modify -p Project -T tag -- Project.Subproject -tag +newtag
+
+    will rename the frames of project "Project" tagged with "tag" into frames
+    of project "Project.Subproject", remove the "tag" tag and add a new tag
+    "newtag".
     """
+    # TODO: --frame option to specify the frame to modify
+    # TODO: --dry-run to only display what will be done
+    # TODO: --confirm / --force / --interactive to ask before doing it
+    # TODO: --verbose / --quiet: some form of message to display progress
     if from_ > to:
         raise click.ClickException("'from' must be anterior to 'to'")
     if not args:
@@ -976,26 +989,7 @@ def modify(watson, from_, to, projects, tags, args):
         tags=tags or None,
         span=watson.frames.span(from_, to)
     )
-    modif_spec = _parse_modify_spec(args)
+    modif_spec = parse_modify_spec(args)
     for frame in frames_to_modify:
         watson.frames[frame.id] = frame.update(*modif_spec)
     watson.save()
-
-
-def _parse_modify_spec(args):
-    new_project = []
-    tags_changes = []
-    in_project = True
-    for arg in args:
-        if arg[0] in ('+', '-'):
-            in_project = False
-            tags_changes.append(arg)
-        elif in_project:
-            new_project.append(arg)
-        else:
-            tags_changes[-1] += ' ' + arg
-    return (
-        ' '.join(new_project) or None,
-        set(t[1:] for t in tags_changes if t.startswith('+')) or None,
-        set(t[1:] for t in tags_changes if t.startswith('-')) or None
-    )

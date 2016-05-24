@@ -111,3 +111,22 @@ def get_frame_from_argument(watson, arg):
             style('error', "No frame found with id"),
             style('short_id', arg))
         )
+
+
+def parse_modify_spec(args):
+    new_project = []
+    tags_changes = []
+    in_project = True
+    for arg in args:
+        if arg[0] in ('+', '-'):
+            in_project = False
+            tags_changes.append(arg)
+        elif in_project:
+            new_project.append(arg)
+        else:
+            tags_changes[-1] += ' ' + arg
+    return (
+        ' '.join(new_project) or None,
+        {t[1:] for t in tags_changes if t.startswith('+')} or None,
+        {t[1:] for t in tags_changes if t.startswith('-')} or None
+    )

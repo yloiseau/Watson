@@ -53,7 +53,10 @@ class Frame(namedtuple('Frame', HEADERS)):
             stop=self.stop,
             project=new_project or self.project,
             id=self.id,
-            tags=list(set(self.tags) | tags_to_add - tags_to_remove),
+            tags=list(
+                (set(self.tags) | (tags_to_add or set())) -
+                (tags_to_remove or set())
+            ),
             updated_at=arrow.utcnow())
 
     @property

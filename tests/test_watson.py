@@ -20,6 +20,7 @@ import arrow
 from click import get_app_dir
 from watson import Watson, WatsonError
 from watson.watson import ConfigurationError, ConfigParser
+from watson.utils import parse_modify_spec
 
 TEST_FIXTURE_DIR = py.path.local(
     os.path.dirname(
@@ -781,3 +782,54 @@ def test_merge_report(watson, datafiles):
 
     assert conflicting[0].id == '2'
     assert merging[0].id == '3'
+
+
+# modify
+
+def test_update_frame(watson):
+    frame = watson.frames.new_frame("Project", 0, 1,
+                                    ["first tag", "second tag"])
+    updated = frame.update(None, None, None)
+    assert updated is frame
+
+    updated = frame.update(None, {"foo", "bar"}, None)
+    assert updated.start == frame.start
+    assert updated.stop == frame.stop
+    assert updated.project == frame.project
+    assert updated.id == frame.id
+    assert updated.updated_at > frame.updated_at
+    assert set(updated.tags) == {"first tag", "second tag", "foo", "bar"}
+
+    updated = frame.update(None, None, {"first tag", "other tag"})
+    assert updated.start == frame.start
+    assert updated.stop == frame.stop
+    assert updated.project == frame.project
+    assert updated.id == frame.id
+    assert updated.updated_at > frame.updated_at
+    assert set(updated.tags) == {"second tag"}
+
+    updated = frame.update("New", None, None)
+    assert updated.start == frame.start
+    assert updated.stop == frame.stop
+    assert updated.project == "New"
+    assert updated.id == frame.id
+    assert updated.updated_at > frame.updated_at
+    assert set(updated.tags) == set(frame.tags)
+
+    updated = frame.update("New", {"foo", "bar"}, {"first tag", "second tag"})
+    assert updated.start == frame.start
+    assert updated.stop == frame.stop
+    assert updated.project == "New"
+    assert updated.id == frame.id
+    assert updated.updated_at > frame.updated_at
+    assert set(updated.tags) == {"foo", "bar"}
+
+
+def test_modify_spec_parser():
+    assert parse_modify_spec([]) == (None, None, None)
+    assert parse_modify_spec(["New", "project"]) == ("New project", None, None)
+    assert parse_modify_spec(["+new", "tag"]) == (None, {"new tag"}, None)
+    assert parse_modify_spec(["-old", "tag"]) == (None, None, {"old tag"})
+    assert parse_modify_spec(
+        "New project name +new tag -old tag +bar -foo".split(" ")) == (
+        "New project name", {"new tag", "bar"}, {"old tag", "foo"})
